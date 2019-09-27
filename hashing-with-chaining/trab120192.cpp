@@ -125,14 +125,29 @@ void insere_registro(int chave, string conteudo) {
         fseek(pFile, sizeof(registro) * offset(chave), SEEK_SET);
         fwrite(&novo_registro, sizeof(struct registro), 1, pFile);
     }
-    else if (velho_registro.key == chave) {
-        cout << "chave ja existente: " << chave << endl;
+    else if (velho_registro.key == offset(chave)) {
+        int position = offset(chave);
+        while (!velho_registro.key != chave && velho_registro.next != -1) {
+            position = velho_registro.next;
+            fseek(pFile, sizeof(registro) * velho_registro.next, SEEK_SET);
+            fread(&velho_registro, sizeof(struct registro), 1, pFile);
+        }
+        if (velho_registro.key == chave) {
+            cout << "chave ja existente: " << chave << endl;
+        }
+        else {
+            int empty_list_start;
+            fseek(pFile, -sizeof(int), SEEK_END);
+            fread(&empty_list_start, sizeof(int), 1, pFile);
+            velho_registro.next = empty_list_start;
+            fseek(pFile, sizeof(struct registro) * position, SEEK_SET);
+            fwrite(&velho_registro, sizeof(struct registro), 1, pFile);
+            fseek(pFile, sizeof(struct registro) * empty_list_start, SEEK_SET);
+            fwrite(&novo_registro, sizeof(struct registro), 1, pFile);
+        }
     }
-    else if (//reposition) {
-
-    }
-    else {
-        //chain
+    else if (false) {
+        //TODO reposition
     }
 }
 
