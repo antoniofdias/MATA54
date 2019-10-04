@@ -21,11 +21,11 @@ tuple<int, int, int, double> read_footer();
 void update_footer();
 void insert_record(unsigned int key, string content);
 void find_record(unsigned int key);
-void remove_record(int key);
+void remove_record(unsigned int key);
 void print_file(int empty_list_start);
 void access_average();
 record seek_record(unsigned int key);
-void update_empty_list(int occupied_position);
+void update_empty_list(int occupied_position, char operation);
 
 int FILE_SIZE = 11;
 FILE * pFile;
@@ -36,7 +36,7 @@ int main() {
     int key;
     char op;
     string content;
-    pFile = start_file("file.bin");
+    pFile = start_file("./src/file.bin");
     footer = read_footer();
 
     while (cin >> op, op != 'e') {
@@ -115,7 +115,7 @@ FILE * start_file(const char* file_name) {
         record new_record;
 
         for (int i = 0; i < FILE_SIZE; i++) {
-            new_record.key = i, new_record.empty = true;
+            new_record.key = -1, new_record.empty = true;
             new_record.prev = (i + FILE_SIZE - 1) % FILE_SIZE;
             new_record.next = (i + 1) % FILE_SIZE;
             fwrite(&new_record, sizeof(struct record), 1, new_file);
@@ -132,7 +132,7 @@ FILE * start_file(const char* file_name) {
         fclose(new_file);
     }
 
-    FILE * fTest = fopen("file.bin", "rb+");
+    FILE * fTest = fopen(file_name, "rb+");
     int test_file_size;
     fseek(fTest, ((sizeof(int) * (-4)) - sizeof(double)), SEEK_END);
     fread(&test_file_size, sizeof(int), 1, fTest);
@@ -177,7 +177,7 @@ void insert_record(unsigned int key, string content) {
     old_record = read(hash_function(key));
     
     if (old_record.empty) {
-        update_empty_list(hash_function(key));
+        update_empty_list(hash_function(key), 'r');
         write (hash_function(key), new_record);
     }
     else {
@@ -192,7 +192,7 @@ void insert_record(unsigned int key, string content) {
 
             if (old_record.key != key){
                 old_record.next = get<0>(footer);
-                update_empty_list(get<0>(footer));
+                update_empty_list(get<0>(footer), 'r');
                 write(previous_position, old_record);
                 write(old_record.next, new_record);
             }
@@ -212,7 +212,7 @@ void insert_record(unsigned int key, string content) {
             }
 
             old_parent.next = get<0>(footer);
-            update_empty_list(get<0>(footer));
+            update_empty_list(get<0>(footer), 'r');
             write(previous_position, old_parent);
             write(old_parent.next, old_record);
             write(hash_function(key), new_record);
@@ -223,20 +223,43 @@ void insert_record(unsigned int key, string content) {
 
 }
 
-void update_empty_list(int occupied_position) {
+void update_empty_list(int occupied_position, char operation) {
 
-    record overwritten = read(occupied_position);
-    
-    record adjacent = read(overwritten.next);
-    adjacent.prev = overwritten.prev;
-    write(overwritten.next, adjacent);
-    
-    adjacent = read(overwritten.prev);
-    adjacent.next = overwritten.next;
-    write(overwritten.prev, adjacent);
+    record overwritten, adjacent;
 
-    if (occupied_position == get<0>(footer)) {
-        get<0>(footer) = overwritten.prev;
+    if (operation == 'r') {
+        overwritten = read(occupied_position);
+        
+        adjacent = read(overwritten.next);
+        adjacent.prev = overwritten.prev;
+        write(overwritten.next, adjacent);
+        
+        adjacent = read(overwritten.prev);
+        adjacent.next = overwritten.next;
+        write(overwritten.prev, adjacent);
+
+        if (occupied_position == get<0>(footer)) {
+            get<0>(footer) = overwritten.prev;
+        }
+    }
+
+    else {
+        overwritten = create_record(-1, "");
+        overwritten.next = get<0>(footer);
+        overwritten.empty = true;
+
+        record previous_empty_head = read(get<0>(footer));
+        overwritten.prev = previous_empty_head.prev;
+        previous_empty_head.prev = occupied_position;
+        write(get<0>(footer), previous_empty_head);
+        get<0>(footer) = occupied_position;
+
+        adjacent = read(overwritten.prev);
+        adjacent.next = occupied_position;
+        write(overwritten.prev, adjacent);
+
+        write(occupied_position, overwritten);
+        
     }
 
 }
@@ -263,8 +286,35 @@ void find_record(unsigned int key) {
     }
 }
 
-void remove_record(int key) {
+void remove_record(unsigned int key) {
 
+    int previous_position = hash_function(key), father_position = hash_function(key);
+    record sought_record = read(previous_position);
+    while (sought_record.next != -1 && sought_record.key != key) {
+        father_position = previous_position;
+        previous_position = sought_record.next;
+        sought_record = read(sought_record.next);
+    }
+    
+    if (sought_record.key == key) {
+
+        if (sought_record.next != -1) {
+            record sought_child = read(sought_record.next);
+            write(previous_position, sought_child);
+            update_empty_list(sought_record.next, 'i');
+        }
+
+        else {
+            record sought_father = read(father_position);
+            sought_father.next = -1;
+            write(father_position, sought_father);
+            update_empty_list(previous_position, 'i');
+        }
+        
+    }
+    else {
+        cout << "chave nao encontrada: " << key << endl;
+    }
 }
 
 void print_file(int empty_list_start) {
