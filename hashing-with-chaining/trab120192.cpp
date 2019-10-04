@@ -32,8 +32,8 @@ int main() {
 	ios::sync_with_stdio(false);
 	cin.tie(0);
 	cout.tie(0);
-    if (access("file.dat", F_OK) == -1) inicia_arquivo();
-    pFile = fopen("file.dat", "r+");
+    if (access("file.bin", F_OK) == -1) inicia_arquivo();
+    pFile = fopen("file.bin", "r+");
     int chave;
     string conteudo;
     char op;
@@ -71,7 +71,7 @@ int offset (int chave) {
 }
 
 void inicia_arquivo() {
-    pFile = fopen("file.dat", "w");
+    pFile = fopen("file.bin", "w");
     registro novo_registro;
     for (int i = 0; i < TAMANHO_ARQUIVO; i++) {
         novo_registro.key = i, novo_registro.empty = true;
