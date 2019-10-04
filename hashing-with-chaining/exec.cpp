@@ -2,6 +2,7 @@
 #include <cstdio> 
 #include <unistd.h>
 #include <tuple>
+#include <iomanip>
 
 using namespace std;
 
@@ -17,19 +18,18 @@ struct record {
 record read(int position);
 void write (int position, record to_write);
 FILE * start_file(const char* file_name);
-tuple<int, int, int, double> read_footer();
+tuple<int, int, int> read_footer();
 void update_footer();
 void insert_record(unsigned int key, string content);
 void find_record(unsigned int key);
 void remove_record(unsigned int key);
 void print_file(int empty_list_start);
 void access_average();
-record seek_record(unsigned int key);
 void update_empty_list(int occupied_position, char operation);
 
 int FILE_SIZE = 11;
 FILE * pFile;
-tuple<int, int, int, double> footer;
+tuple<int, int, int> footer;
 
 int main() {
 
@@ -73,15 +73,14 @@ int main() {
 
 }
 
-tuple<int, int, int, double> read_footer() {
+tuple<int, int, int> read_footer() {
 
-    tuple<int, int, int, double> footer;
+    tuple<int, int, int> footer;
 
-    fseek(pFile, ((sizeof(int) * (-3)) - sizeof(double)), SEEK_END);
+    fseek(pFile, (sizeof(int) * (-3)), SEEK_END);
     fread(&get<0>(footer), sizeof(int), 1, pFile);
     fread(&get<1>(footer), sizeof(int), 1, pFile);
     fread(&get<2>(footer), sizeof(int), 1, pFile);
-    fread(&get<3>(footer), sizeof(double), 1, pFile);
 
     return footer;
 
@@ -121,20 +120,18 @@ FILE * start_file(const char* file_name) {
             fwrite(&new_record, sizeof(struct record), 1, new_file);
         }
 
-        double average = 0;
         int empty_list_start = FILE_SIZE - 1, occupied_positions = 0, chain_sizes = 0;
         fwrite(&FILE_SIZE, sizeof(int), 1, new_file);
         fwrite(&empty_list_start, sizeof(int), 1, new_file);
         fwrite(&occupied_positions, sizeof(int), 1, new_file);
         fwrite(&chain_sizes, sizeof(int), 1, new_file);
-        fwrite(&average, sizeof(double), 1, new_file);
 
         fclose(new_file);
     }
 
     FILE * fTest = fopen(file_name, "rb+");
     int test_file_size;
-    fseek(fTest, ((sizeof(int) * (-4)) - sizeof(double)), SEEK_END);
+    fseek(fTest, (sizeof(int) * (-4)), SEEK_END);
     fread(&test_file_size, sizeof(int), 1, fTest);
 
     if (test_file_size != FILE_SIZE) {
@@ -147,11 +144,10 @@ FILE * start_file(const char* file_name) {
 
 void update_footer() {
 
-    fseek(pFile, ((sizeof(int) * (-3)) - sizeof(double)), SEEK_END);
+    fseek(pFile, (sizeof(int) * (-3)), SEEK_END);
     fwrite(&get<0>(footer), sizeof(int), 1, pFile);
     fwrite(&get<1>(footer), sizeof(int), 1, pFile);
     fwrite(&get<2>(footer), sizeof(int), 1, pFile);
-    fwrite(&get<3>(footer), sizeof(double), 1, pFile);
 
 }
 
@@ -177,7 +173,10 @@ void insert_record(unsigned int key, string content) {
     old_record = read(hash_function(key));
     
     if (old_record.empty) {
+        get<1>(footer)++;
         update_empty_list(hash_function(key), 'r');
+        new_record.chain_size = 1;
+        get<2>(footer) += new_record.chain_size;
         write (hash_function(key), new_record);
     }
     else {
@@ -195,6 +194,12 @@ void insert_record(unsigned int key, string content) {
                 update_empty_list(get<0>(footer), 'r');
                 write(previous_position, old_record);
                 write(old_record.next, new_record);
+
+                record chain_head = read(hash_function(key));
+                chain_head.chain_size++;
+                write(hash_function(key), chain_head);
+                get<1>(footer)++;
+                get<2>(footer) += chain_head.chain_size;
             }
             else {
                 cout << "chave ja existente: " << key << endl;
@@ -215,6 +220,10 @@ void insert_record(unsigned int key, string content) {
             update_empty_list(get<0>(footer), 'r');
             write(previous_position, old_parent);
             write(old_parent.next, old_record);
+
+            get<1>(footer)++;
+            new_record.chain_size = 1;
+            get<2>(footer) += new_record.chain_size;
             write(hash_function(key), new_record);
 
         }
@@ -259,27 +268,20 @@ void update_empty_list(int occupied_position, char operation) {
         write(overwritten.prev, adjacent);
 
         write(occupied_position, overwritten);
-        
     }
 
 }
 
-record seek_record(unsigned int key) {
-    int counter = 0;
-    record current_record = read(hash_function(key));
-
-    while (!current_record.empty && current_record.key != key && counter < FILE_SIZE){
-        current_record = read(current_record.next);
-        counter++;
-    }
-
-    return current_record;
-}
 
 void find_record(unsigned int key) {
-    record found_record = seek_record(key);
-    if (found_record.key == key) {
-        cout << "chave: " << found_record.key << endl << found_record.content << endl;
+    record current_record = read(hash_function(key));
+
+    while (!current_record.empty && current_record.key != key){
+        current_record = read(current_record.next);
+    }
+
+    if (current_record.key == key) {
+        cout << "chave: " << current_record.key << endl << current_record.content << endl;
     }
     else {
         cout << "chave nao encontrada: " << key << endl;
@@ -298,6 +300,10 @@ void remove_record(unsigned int key) {
     
     if (sought_record.key == key) {
 
+        get<1>(footer)--;
+        record chain_head = read(hash_function(key));
+        int chain_size = chain_head.chain_size;
+
         if (sought_record.next != -1) {
             record sought_child = read(sought_record.next);
             write(previous_position, sought_child);
@@ -310,7 +316,12 @@ void remove_record(unsigned int key) {
             write(father_position, sought_father);
             update_empty_list(previous_position, 'i');
         }
-        
+
+        chain_head = read(hash_function(key));
+        get<2>(footer) -= chain_size;
+        chain_head.chain_size = chain_size - 1;
+        write(hash_function(key), chain_head);
+
     }
     else {
         cout << "chave nao encontrada: " << key << endl;
@@ -338,5 +349,6 @@ void print_file(int empty_list_start) {
 }
 
 void access_average() {
-
+    double average = (get<1>(footer) ? (double) get<2>(footer) / get<1>(footer) : 0.0);
+    cout << setprecision(2) << fixed << average << endl;
 }
