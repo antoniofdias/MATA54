@@ -1,3 +1,5 @@
 /hashing-with-chaining/*
-!/hashing-with-chaining/trab120192.cpp
-!/hashing-with-chaining/exec.cpp
+!/hashing-with-chaining/include
+!/hashing-with-chaining/src
+!/hashing-with-chaining/Makefile
+!/hashing-with-chaining/README.md

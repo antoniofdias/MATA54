@@ -1,79 +1,6 @@
-#include <iostream>
-#include <cstdio> 
-#include <unistd.h>
-#include <tuple>
-#include <iomanip>
+#include "file.hpp"
 
-using namespace std;
-
-struct record {
-    unsigned int key;
-    char content[21];
-    bool empty;
-    int prev;
-    int next;
-    int chain_size;
-};
-
-record read(int position);
-void write (int position, record to_write);
-FILE * start_file(const char* file_name);
-tuple<int, int, int> read_footer();
-void update_footer();
-void insert_record(unsigned int key, string content);
-void find_record(unsigned int key);
-void remove_record(unsigned int key);
-void print_file(int empty_list_start);
-void access_average();
-void update_empty_list(int occupied_position, char operation);
-
-int FILE_SIZE = 11;
-FILE * pFile;
-tuple<int, int, int> footer;
-
-int main() {
-
-    int key;
-    char op;
-    string content;
-    pFile = start_file("./src/file.bin");
-    footer = read_footer();
-
-    while (cin >> op, op != 'e') {
-
-        switch (op) {
-            case 'i':
-                cin >> key;
-                cin.ignore();
-                getline(cin, content);
-                insert_record(key, content);
-                break;
-            case 'c':
-                cin >> key;
-                find_record(key);
-                break;
-            case 'r':
-                cin >> key;
-                remove_record(key);
-                break;
-            case 'p':
-                print_file(get<0>(footer));
-                break;
-            case 'm':
-                access_average();
-                break;
-            default:
-                break;
-        }
-
-    }
-
-    update_footer();
-    fclose(pFile);
-
-}
-
-tuple<int, int, int> read_footer() {
+tuple<int, int, int> read_footer(FILE * pFile) {
 
     tuple<int, int, int> footer;
 
@@ -90,7 +17,7 @@ int hash_function(int key) {
     return (key % FILE_SIZE);
 }
 
-record read(int position) {
+record read(int position, FILE * pFile) {
 
     record buffer;
     fseek(pFile, sizeof(struct record) * position, SEEK_SET);
@@ -99,7 +26,7 @@ record read(int position) {
 
 }
 
-void write (int position, record to_write) {
+void write(int position, record to_write, FILE * pFile) {
 
     fseek(pFile, sizeof(struct record) * position, SEEK_SET);
     fwrite(&to_write, sizeof(struct record), 1, pFile);
@@ -142,7 +69,7 @@ FILE * start_file(const char* file_name) {
     }
 }
 
-void update_footer() {
+void update_footer(FILE * pFile, tuple<int, int, int> &footer) {
 
     fseek(pFile, (sizeof(int) * (-3)), SEEK_END);
     fwrite(&get<0>(footer), sizeof(int), 1, pFile);
@@ -166,11 +93,11 @@ record create_record(int key, string content) {
 }
 
 
-void insert_record(unsigned int key, string content) {
+void insert_record(unsigned int key, string content, FILE * pFile, tuple<int, int, int> &footer) {
 
     record new_record, old_record;
     new_record = create_record(key, content);
-    old_record = read(hash_function(key));
+    old_record = read(hash_function(key), pFile);
 
     if (get<1>(footer) == FILE_SIZE) {
         throw runtime_error("FILE_SIZE limit reached.");
@@ -178,10 +105,10 @@ void insert_record(unsigned int key, string content) {
     
     if (old_record.empty) {
         get<1>(footer)++;
-        update_empty_list(hash_function(key), 'r');
+        update_empty_list(hash_function(key), 'r', pFile, footer);
         new_record.chain_size = 1;
         get<2>(footer) += new_record.chain_size;
-        write (hash_function(key), new_record);
+        write(hash_function(key), new_record, pFile);
     }
     else {
 
@@ -190,19 +117,19 @@ void insert_record(unsigned int key, string content) {
             int previous_position = hash_function(key);
             while (old_record.next != -1 && old_record.key != key) {
                 previous_position = old_record.next;
-                old_record = read(old_record.next);
+                old_record = read(old_record.next, pFile);
             }
 
             if (old_record.key != key){
                 get<1>(footer)++;
                 old_record.next = get<0>(footer);
-                update_empty_list(get<0>(footer), 'r');
-                write(previous_position, old_record);
-                write(old_record.next, new_record);
+                update_empty_list(get<0>(footer), 'r', pFile, footer);
+                write(previous_position, old_record, pFile);
+                write(old_record.next, new_record, pFile);
 
-                record chain_head = read(hash_function(key));
+                record chain_head = read(hash_function(key), pFile);
                 chain_head.chain_size++;
-                write(hash_function(key), chain_head);
+                write(hash_function(key), chain_head, pFile);
                 get<2>(footer) += chain_head.chain_size;
             }
             else {
@@ -214,21 +141,21 @@ void insert_record(unsigned int key, string content) {
         else {
 
             int previous_position = hash_function(old_record.key);
-            record old_parent = read(previous_position);
+            record old_parent = read(previous_position, pFile);
             while (old_parent.next != hash_function(key)) {
                 previous_position = old_parent.next;
-                old_parent = read(old_parent.next);
+                old_parent = read(old_parent.next, pFile);
             }
 
             old_parent.next = get<0>(footer);
-            update_empty_list(get<0>(footer), 'r');
-            write(previous_position, old_parent);
-            write(old_parent.next, old_record);
+            update_empty_list(get<0>(footer), 'r', pFile, footer);
+            write(previous_position, old_parent, pFile);
+            write(old_parent.next, old_record, pFile);
 
             get<1>(footer)++;
             new_record.chain_size = 1;
             get<2>(footer) += new_record.chain_size;
-            write(hash_function(key), new_record);
+            write(hash_function(key), new_record, pFile);
 
         }
 
@@ -236,20 +163,20 @@ void insert_record(unsigned int key, string content) {
 
 }
 
-void update_empty_list(int occupied_position, char operation) {
+void update_empty_list(int occupied_position, char operation, FILE * pFile, tuple<int, int, int> &footer) {
 
     record overwritten, adjacent;
 
     if (operation == 'r') {
-        overwritten = read(occupied_position);
+        overwritten = read(occupied_position, pFile);
         
-        adjacent = read(overwritten.next);
+        adjacent = read(overwritten.next, pFile);
         adjacent.prev = overwritten.prev;
-        write(overwritten.next, adjacent);
+        write(overwritten.next, adjacent, pFile);
         
-        adjacent = read(overwritten.prev);
+        adjacent = read(overwritten.prev, pFile);
         adjacent.next = overwritten.next;
-        write(overwritten.prev, adjacent);
+        write(overwritten.prev, adjacent, pFile);
 
         if (occupied_position == get<0>(footer)) {
             get<0>(footer) = overwritten.prev;
@@ -265,33 +192,33 @@ void update_empty_list(int occupied_position, char operation) {
         overwritten.empty = true;
 
         if (get<0>(footer) != -1) {
-            record previous_empty_head = read(get<0>(footer));
+            record previous_empty_head = read(get<0>(footer), pFile);
             overwritten.next = get<0>(footer);
             overwritten.prev = previous_empty_head.prev;
             previous_empty_head.prev = occupied_position;
-            write(get<0>(footer), previous_empty_head);
+            write(get<0>(footer), previous_empty_head, pFile);
             get<0>(footer) = occupied_position;
 
-            adjacent = read(overwritten.prev);
+            adjacent = read(overwritten.prev, pFile);
             adjacent.next = occupied_position;
-            write(overwritten.prev, adjacent);
+            write(overwritten.prev, adjacent, pFile);
         }
         else {
             get<0>(footer) = occupied_position;
             overwritten.next = overwritten.prev = occupied_position;
         }
 
-        write(occupied_position, overwritten);
+        write(occupied_position, overwritten, pFile);
     }
 
 }
 
 
-void find_record(unsigned int key) {
-    record current_record = read(hash_function(key));
+void find_record(unsigned int key, FILE * pFile) {
+    record current_record = read(hash_function(key), pFile);
 
     while (current_record.next != -1 && current_record.key != key){
-        current_record = read(current_record.next);
+        current_record = read(current_record.next, pFile);
     }
 
     if (current_record.key == key) {
@@ -302,39 +229,39 @@ void find_record(unsigned int key) {
     }
 }
 
-void remove_record(unsigned int key) {
+void remove_record(unsigned int key, FILE * pFile, tuple<int, int, int> &footer) {
 
     int previous_position = hash_function(key), father_position = hash_function(key);
-    record sought_record = read(previous_position);
+    record sought_record = read(previous_position, pFile);
     while (sought_record.next != -1 && sought_record.key != key) {
         father_position = previous_position;
         previous_position = sought_record.next;
-        sought_record = read(sought_record.next);
+        sought_record = read(sought_record.next, pFile);
     }
     
     if (sought_record.key == key) {
 
         get<1>(footer)--;
-        record chain_head = read(hash_function(key));
+        record chain_head = read(hash_function(key), pFile);
         int chain_size = chain_head.chain_size;
 
         if (sought_record.next != -1) {
-            record sought_child = read(sought_record.next);
-            write(previous_position, sought_child);
-            update_empty_list(sought_record.next, 'i');
+            record sought_child = read(sought_record.next, pFile);
+            write(previous_position, sought_child, pFile);
+            update_empty_list(sought_record.next, 'i', pFile, footer);
         }
 
         else {
-            record sought_father = read(father_position);
+            record sought_father = read(father_position, pFile);
             sought_father.next = -1;
-            write(father_position, sought_father);
-            update_empty_list(previous_position, 'i');
+            write(father_position, sought_father, pFile);
+            update_empty_list(previous_position, 'i', pFile, footer);
         }
 
-        chain_head = read(hash_function(key));
+        chain_head = read(hash_function(key), pFile);
         get<2>(footer) -= chain_size;
         chain_head.chain_size = chain_size - 1;
-        write(hash_function(key), chain_head);
+        write(hash_function(key), chain_head, pFile);
 
     }
     else {
@@ -342,7 +269,7 @@ void remove_record(unsigned int key) {
     }
 }
 
-void print_file(int empty_list_start) {
+void print_file(int empty_list_start, FILE * pFile) {
 
     record buffer;
     fseek(pFile, 0, SEEK_SET);
@@ -361,7 +288,7 @@ void print_file(int empty_list_start) {
 
 }
 
-void access_average() {
+void access_average(tuple<int, int, int> &footer) {
     double average = (get<1>(footer) ? (double) get<2>(footer) / get<1>(footer) : 0.0);
     cout << setprecision(1) << fixed << average << endl;
 }
