@@ -1,5 +1,6 @@
 #include <iostream>
 #include <queue>
+#include <string.h>
 #include <map>
 
 using namespace std;
@@ -10,7 +11,7 @@ using namespace std;
 map<char, string> dictionaryAB;
 map<char, string> dictionaryBA;
 
-FILE *pFile;
+
 
 struct node {
     bool terminal;
@@ -58,16 +59,40 @@ int main (int argc, const char *argv[]) {
 }
 
 map<char, int> read_file(const char *file_name) {
-    pFile = fopen(file_name, "r");
+    FILE *inputFile = fopen(file_name, "r");
 
     map<char, int> table;
     char buffer;
-    while ((buffer = getc(pFile)) != EOF) {
+    while ((buffer = getc(inputFile)) != EOF) {
         table[buffer]++;
         debug << buffer;
     } 
     debug << endl;
+    fclose(inputFile);
     return table;
+}
+
+void save_file_compressed(const char *file_name) {
+    FILE *inputFile = fopen(file_name, "r");
+    string aux = file_name;
+    aux += ".cmp";
+    const char* another_file_name = aux.c_str();
+    FILE *outputFile = fopen(another_file_name, "w");
+
+    for (auto item : dictionaryAB) {
+        fwrite(&item.first, sizeof(char), 1, outputFile);
+        int len = item.second.size();
+        fwrite(&len, sizeof(int), 1, outputFile);
+        fwrite(&item.second, len * sizeof(char), 1, outputFile);
+    }
+    char buffer;
+    while ((buffer = getc(inputFile)) != EOF) {
+        int len = dictionaryAB[buffer].size();
+        fwrite(&dictionaryAB[buffer], len * sizeof(char), 1, outputFile);
+    } 
+
+    fclose(inputFile);
+    fclose(outputFile);
 }
 
 void compress(const char *file_name) {
@@ -111,10 +136,9 @@ void compress(const char *file_name) {
     create_dictionary(root, "");
 
     debug << "Q\n";
-    
-    for (auto kv : dictionaryAB) {
-        cout << kv.first << ' ' << kv.second << endl;
-    }
+
+    save_file_compressed(file_name);
+
     debug << "5\n";
 }
 
