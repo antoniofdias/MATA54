@@ -96,6 +96,8 @@ void save_file_compressed(FILE* inputFile, FILE* outputFile) {
 void read_file_compressed(FILE* inputFile) {
     int size;
     fread(&size, sizeof(int), 1, inputFile);
+    debug << "HEADER" << endl;
+
     for (int i = 0; i < size; i++) {
         char character;
         fread(&character, sizeof(char), 1, inputFile);
@@ -112,6 +114,7 @@ void read_file_compressed(FILE* inputFile) {
             else
                 representacao += '0';
         }
+        debug << character << " " << representacao << endl;
         dictionaryBA[representacao] = character;
     }
 }
@@ -119,6 +122,8 @@ void read_file_compressed(FILE* inputFile) {
 void save_file_decompressed(FILE* inputFile, FILE* outputFile) {
     string buffer;
     char buffer_aux;
+    debug << "CONTENT" << endl;
+
     while ((buffer_aux = getc(inputFile)) != EOF) {
         fseek(inputFile, (sizeof(char) * (-1)), SEEK_END);
         
@@ -133,6 +138,7 @@ void save_file_decompressed(FILE* inputFile, FILE* outputFile) {
             if (dictionaryBA.count(buffer)) {
                 fwrite(&dictionaryBA[buffer], sizeof(buffer), 1, outputFile);
                 buffer = "";
+                debug << dictionaryBA[buffer];
                 break;
             }
         }
