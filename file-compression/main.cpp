@@ -59,7 +59,7 @@ int main (int argc, const char *argv[]) {
     }
 }
 
-map<char, int> read_file(FILE* inputFile) {
+map<char, int> read_file_decompressed(FILE* inputFile) {
     map<char, int> table;
     char buffer;
     while ((buffer = getc(inputFile)) != EOF) {
@@ -91,11 +91,9 @@ void save_file_compressed(FILE* inputFile, FILE* outputFile) {
         int len = dictionaryAB[buffer].size();
         fwrite(&dictionaryAB[buffer], len * sizeof(char), 1, outputFile);
     } 
-
-
 }
 
-void read_file_compressed_header(FILE* inputFile) {
+void read_file_compressed(FILE* inputFile) {
     int size;
     fread(&size, sizeof(int), 1, inputFile);
     for (int i = 0; i < size; i++) {
@@ -118,6 +116,29 @@ void read_file_compressed_header(FILE* inputFile) {
     }
 }
 
+void save_file_decompressed(FILE* inputFile, FILE* outputFile) {
+    string buffer;
+    char buffer_aux;
+    while ((buffer_aux = getc(inputFile)) != EOF) {
+        fseek(inputFile, (sizeof(char) * (-1)), SEEK_END);
+        
+        for (int i = 0; i < 8; i++) {
+            bitset<1> buffer_bs;
+            fread(&buffer_bs, sizeof(buffer_bs), 1, inputFile);
+            if (buffer_bs == 1)
+                buffer += '1';
+            else
+                buffer += '0';
+
+            if (dictionaryBA.count(buffer)) {
+                fwrite(&dictionaryBA[buffer], sizeof(buffer), 1, outputFile);
+                buffer = "";
+                break;
+            }
+        }
+    } 
+}
+
 void compress(const char *file_name) {
     FILE *inputFile = fopen(file_name, "r");
     string file_name_str = file_name;
@@ -130,7 +151,7 @@ void compress(const char *file_name) {
     node aux, root;
     priority_queue<node> huff;
 
-    map<char, int> table = read_file(inputFile);
+    map<char, int> table = read_file_decompressed(inputFile);
 
     for (auto e : table) {
         aux.terminal = true;
@@ -171,7 +192,9 @@ void decompress(const char *file_name) {
     const char* another_file_name = aux.c_str();
     FILE *outputFile = fopen(another_file_name, "w");
 
-    read_file_compressed_header(inputFile);
+    read_file_compressed(inputFile);
+
+    save_file_decompressed(inputFile, outputFile);
 
     fclose(inputFile);
     fclose(outputFile);
