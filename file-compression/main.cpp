@@ -57,21 +57,27 @@ int main (int argc, const char *argv[]) {
     }
 }
 
+map<char, int> read_file(const char *file_name) {
+    pFile = fopen(file_name, "r");
+
+    map<char, int> table;
+    char buffer;
+    while ((buffer = getc(pFile)) != EOF) {
+        table[buffer]++;
+        cout << buffer << ".";
+    } 
+    cout << endl;
+    return table;
+}
+
 void compress(const char *file_name) {
     cout << file_name << endl;
 
-    pFile = fopen(file_name, "r");
-    char str[512];
-    int str_size = fread(&str, sizeof(char), 512, pFile);
     node aux, root;
-    map<char, int> table;
     priority_queue<node> huff;
 
-    debug << str;
-
-    for (int i = 0; i < str_size - 1; i++) {
-        table[str[i]]++;
-    }
+    debug << "1\n";
+    map<char, int> table = read_file(file_name);
     debug << "2\n";
 
     for (auto e : table) {
