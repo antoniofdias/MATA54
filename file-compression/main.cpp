@@ -26,10 +26,8 @@ struct node {
 
 void compress(const char *file_name);
 void decompress(const char *file_name);
-void bfs(node root);
 
 void create_dictionary(node &node_visited, string code) {
-    cout << "4,5\n";
     if (!node_visited.terminal) {
         create_dictionary(node_visited.children[1], code + '0');
         create_dictionary(node_visited.children[0], code + '1');
@@ -60,19 +58,19 @@ int main (int argc, const char *argv[]) {
 }
 
 void compress(const char *file_name) {
+    cout << file_name << endl;
 
     pFile = fopen(file_name, "r");
-    string str;
-    fread(&str, 512, 1, pFile);
-    cout << str;
+    char str[512];
+    int str_size = fread(&str, sizeof(char), 512, pFile);
     node aux, root;
     map<char, int> table;
     priority_queue<node> huff;
 
-    debug << "1\n";
+    debug << str;
 
-    for (char c : str) {
-        table[c]++;
+    for (int i = 0; i < str_size - 1; i++) {
+        table[str[i]]++;
     }
     debug << "2\n";
 
@@ -104,9 +102,9 @@ void compress(const char *file_name) {
     }
     debug << "4\n";
 
-    bfs(root);
-
     create_dictionary(root, "");
+
+    debug << "Q\n";
     
     for (auto kv : dictionaryAB) {
         cout << kv.first << ' ' << kv.second << endl;
@@ -116,16 +114,4 @@ void compress(const char *file_name) {
 
 void decompress(const char *file_name) {
     
-}
-
-void bfs(node root) {
-    queue<node> largura;
-    largura.push(root);
-    while (!largura.empty()) {
-        cout << largura.front().content << ' ' << largura.front().frequency << endl;
-        largura.pop();
-        for (node child : largura.front().children) {
-            largura.push(child);
-        }
-    }
 }
