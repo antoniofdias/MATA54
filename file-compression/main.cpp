@@ -13,7 +13,6 @@ map<char, string> dictionaryAB;
 map<string, char> dictionaryBA;
 
 
-
 struct node {
     bool terminal;
     unsigned int frequency;
@@ -61,15 +60,23 @@ int main (int argc, const char *argv[]) {
 
 map<char, int> read_file_decompressed(FILE* inputFile) {
     map<char, int> table;
-    char buffer;
-    while ((buffer = getc(inputFile)) != EOF) {
+
+    fseek(inputFile, 0, SEEK_END);
+    int file_size = ftell(inputFile);
+    fseek(inputFile, 0, SEEK_SET);
+    debug << file_size;
+
+    for (int i = 0; i < file_size; i++) {
+        char buffer;
+        fread(&buffer, sizeof(char), 1, inputFile);
         table[buffer]++;
+        debug << buffer;
     } 
-    fclose(inputFile);
     return table;
 }
 
 void save_file_compressed(FILE* inputFile, FILE* outputFile) {
+    debug << "HEADER" << endl;
   
     int size = dictionaryAB.size();
     fwrite(&size, sizeof(int), 1, outputFile);
@@ -77,72 +84,101 @@ void save_file_compressed(FILE* inputFile, FILE* outputFile) {
         fwrite(&item.first, sizeof(char), 1, outputFile);
         int len = item.second.size();
         fwrite(&len, sizeof(int), 1, outputFile);
-        bitset<1> um = 1;
-        bitset<1> zero = 0;
-        for (int i = 0; i < len; i++) {
-            if (item.second[i] == 0)
-                fwrite(&zero, sizeof(zero), 1, outputFile);
-            else
-                fwrite(&um, sizeof(um), 1, outputFile);
-        }
+        for (char c : item.second)
+            fwrite(&c, sizeof(char), 1, outputFile);
+        debug << item.first << "[" << len << "]: " << item.second << endl;
     }
-    char buffer;
-    while ((buffer = getc(inputFile)) != EOF) {
+
+    debug << "CONTENT" << endl;
+
+    int pos = ftell(outputFile); 
+    
+    fseek(inputFile, 0, SEEK_END);
+    int file_size = ftell(inputFile);
+    fseek(inputFile, 0, SEEK_SET);
+
+    bitset<8> bs = 0;
+    int rep_size = 0;
+    for (int i = 0; i < file_size; i++) {
+        char buffer;
+        fread(&buffer, sizeof(char), 1, inputFile);
+        debug << "." << buffer << dictionaryAB[buffer];
         int len = dictionaryAB[buffer].size();
-        fwrite(&dictionaryAB[buffer], len * sizeof(char), 1, outputFile);
+
+        for (int i=0; i < len; i++) {
+            bs << 1;
+            rep_size++;
+            if (dictionaryAB[buffer][i] == '1'){
+                bs |= 1;
+            }
+            if (rep_size % 8 == 0) {
+                char representacao = (char)bs.to_ulong();
+                fwrite(&representacao, sizeof(char), 1, outputFile);
+                rep_size = 0;
+            }
+        }
     } 
+    if (rep_size) {
+        bs << (8-rep_size);
+        char representacao = (char)bs.to_ulong();
+        fwrite(&representacao, sizeof(char), 1, outputFile);
+    }
+    debug << endl;
+
 }
 
 void read_file_compressed(FILE* inputFile) {
-    int size;
-    fread(&size, sizeof(int), 1, inputFile);
     debug << "HEADER" << endl;
 
+    int size;
+    fread(&size, sizeof(int), 1, inputFile);
     for (int i = 0; i < size; i++) {
         char character;
         fread(&character, sizeof(char), 1, inputFile);
+        debug << "character:" << character << endl;
 
         int len;
         fread(&len, sizeof(int), 1, inputFile);
+        debug << " len:" << len << endl;
 
         string representacao = "";
         for (int i = 0; i < len; i++) {
-            bitset<1> buffer;
-            fread(&buffer, sizeof(buffer), 1, inputFile);
-            if (buffer == 1)
-                representacao += '1';
-            else
-                representacao += '0';
+            char buffer;
+            fread(&buffer, sizeof(char), 1, inputFile);
+            representacao += buffer;
         }
-        debug << character << " " << representacao << endl;
+        debug << character << "[" << len << "]: " << representacao << endl;
+
         dictionaryBA[representacao] = character;
     }
 }
 
 void save_file_decompressed(FILE* inputFile, FILE* outputFile) {
-    string buffer;
-    char buffer_aux;
+    int pos = ftell(inputFile);
+    fseek(inputFile, 0, SEEK_END);
+    int len = ftell(inputFile) - pos;
+    fseek(inputFile, pos, SEEK_SET);
+
     debug << "CONTENT" << endl;
+    char buffer;
+    string representacao;
 
-    while ((buffer_aux = getc(inputFile)) != EOF) {
-        fseek(inputFile, (sizeof(char) * (-1)), SEEK_END);
-        
-        for (int i = 0; i < 8; i++) {
-            bitset<1> buffer_bs;
-            fread(&buffer_bs, sizeof(buffer_bs), 1, inputFile);
-            if (buffer_bs == 1)
-                buffer += '1';
+    for (int i = 0; i < len; i++) {
+        fread(&buffer, sizeof(char), 1, inputFile);
+        bitset<8> bs(buffer);
+        for (int j = 7; j >= 0; j--) {
+            if (bs[j] == 1)
+                representacao += '1';
             else
-                buffer += '0';
+                representacao += '0';
 
-            if (dictionaryBA.count(buffer)) {
-                fwrite(&dictionaryBA[buffer], sizeof(buffer), 1, outputFile);
-                buffer = "";
-                debug << dictionaryBA[buffer];
-                break;
+            if (dictionaryBA.count(representacao)) {
+                fwrite(&dictionaryBA[representacao], sizeof(char), 1, outputFile);
+                // dxebug << "." << representacao << "(" << dictionaryBA[representacao] << ")";
+                representacao = "";
             }
         }
-    } 
+    }
 }
 
 void compress(const char *file_name) {
