@@ -1,7 +1,8 @@
+#include <bitset>
 #include <iostream>
+#include <map>
 #include <queue>
 #include <string.h>
-#include <map>
 
 using namespace std;
 
@@ -9,7 +10,7 @@ using namespace std;
 #define pb push_back
 
 map<char, string> dictionaryAB;
-map<char, string> dictionaryBA;
+map<string, char> dictionaryBA;
 
 
 
@@ -58,32 +59,32 @@ int main (int argc, const char *argv[]) {
     }
 }
 
-map<char, int> read_file(const char *file_name) {
-    FILE *inputFile = fopen(file_name, "r");
-
+map<char, int> read_file(FILE* inputFile) {
     map<char, int> table;
     char buffer;
     while ((buffer = getc(inputFile)) != EOF) {
         table[buffer]++;
-        debug << buffer;
     } 
-    debug << endl;
     fclose(inputFile);
     return table;
 }
 
-void save_file_compressed(const char *file_name) {
-    FILE *inputFile = fopen(file_name, "r");
-    string aux = file_name;
-    aux += ".cmp";
-    const char* another_file_name = aux.c_str();
-    FILE *outputFile = fopen(another_file_name, "w");
-
+void save_file_compressed(FILE* inputFile, FILE* outputFile) {
+  
+    int size = dictionaryAB.size();
+    fwrite(&size, sizeof(int), 1, outputFile);
     for (auto item : dictionaryAB) {
         fwrite(&item.first, sizeof(char), 1, outputFile);
         int len = item.second.size();
         fwrite(&len, sizeof(int), 1, outputFile);
-        fwrite(&item.second, len * sizeof(char), 1, outputFile);
+        bitset<1> um = 1;
+        bitset<1> zero = 0;
+        for (int i = 0; i < len; i++) {
+            if (item.second[i] == 0)
+                fwrite(&zero, sizeof(zero), 1, outputFile);
+            else
+                fwrite(&um, sizeof(um), 1, outputFile);
+        }
     }
     char buffer;
     while ((buffer = getc(inputFile)) != EOF) {
@@ -91,19 +92,45 @@ void save_file_compressed(const char *file_name) {
         fwrite(&dictionaryAB[buffer], len * sizeof(char), 1, outputFile);
     } 
 
-    fclose(inputFile);
-    fclose(outputFile);
+
+}
+
+void read_file_compressed_header(FILE* inputFile) {
+    int size;
+    fread(&size, sizeof(int), 1, inputFile);
+    for (int i = 0; i < size; i++) {
+        char character;
+        fread(&character, sizeof(char), 1, inputFile);
+
+        int len;
+        fread(&len, sizeof(int), 1, inputFile);
+
+        string representacao = "";
+        for (int i = 0; i < len; i++) {
+            bitset<1> buffer;
+            fread(&buffer, sizeof(buffer), 1, inputFile);
+            if (buffer == 1)
+                representacao += '1';
+            else
+                representacao += '0';
+        }
+        dictionaryBA[representacao] = character;
+    }
 }
 
 void compress(const char *file_name) {
+    FILE *inputFile = fopen(file_name, "r");
+    string file_name_str = file_name;
+    file_name_str += ".cmp";
+    const char* another_file_name = file_name_str.c_str();
+    FILE *outputFile = fopen(another_file_name, "w");
+
     cout << file_name << endl;
 
     node aux, root;
     priority_queue<node> huff;
 
-    debug << "1\n";
-    map<char, int> table = read_file(file_name);
-    debug << "2\n";
+    map<char, int> table = read_file(inputFile);
 
     for (auto e : table) {
         aux.terminal = true;
@@ -111,7 +138,6 @@ void compress(const char *file_name) {
         aux.content = e.first;
         huff.push(aux);
     }
-    debug << "3\n";
 
     while (!huff.empty()) {
         node left = huff.top();
@@ -131,17 +157,22 @@ void compress(const char *file_name) {
             huff.push(next);
         }
     }
-    debug << "4\n";
-
     create_dictionary(root, "");
 
-    debug << "Q\n";
+    save_file_compressed(inputFile, outputFile);
 
-    save_file_compressed(file_name);
-
-    debug << "5\n";
+    fclose(inputFile);
+    fclose(outputFile);
 }
 
 void decompress(const char *file_name) {
-    
+    FILE *inputFile = fopen(file_name, "r");
+    string aux(file_name + 0, ((string)file_name).size() - 4);
+    const char* another_file_name = aux.c_str();
+    FILE *outputFile = fopen(another_file_name, "w");
+
+    read_file_compressed_header(inputFile);
+
+    fclose(inputFile);
+    fclose(outputFile);
 }
