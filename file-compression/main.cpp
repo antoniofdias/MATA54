@@ -10,6 +10,8 @@ using namespace std;
 map<char, string> dictionaryAB;
 map<char, string> dictionaryBA;
 
+FILE *pFile;
+
 struct node {
     bool terminal;
     unsigned int frequency;
@@ -22,23 +24,28 @@ struct node {
 
 };
 
+void compress(const char *file_name);
+void decompress(const char *file_name);
+void bfs(node root);
+
 void create_dictionary(node &node_visited, string code) {
+    cout << "4,5\n";
     if (!node_visited.terminal) {
         create_dictionary(node_visited.children[1], code + '0');
         create_dictionary(node_visited.children[0], code + '1');
     }
     else {
-        dictionary[node_visited.content] = code;
+        dictionaryAB[node_visited.content] = code;
     }
 }
 
-int main (int argc, char const *argv[]) {
+int main (int argc, const char *argv[]) {
     if (argc == 3) {
-        switch(argv[1]) {
-            case "-c":
+        switch(argv[1][1]) {
+            case 'c':
                 compress(argv[2]);
                 break;
-            case "-d":
+            case 'd':
                 decompress(argv[2]);
                 break;
             default:
@@ -52,18 +59,22 @@ int main (int argc, char const *argv[]) {
     }
 }
 
-void compress() {
+void compress(const char *file_name) {
+
+    pFile = fopen(file_name, "r");
     string str;
+    fread(&str, 512, 1, pFile);
+    cout << str;
     node aux, root;
     map<char, int> table;
     priority_queue<node> huff;
-    queue<node> bfs;
 
-    cin >> str;
+    debug << "1\n";
 
     for (char c : str) {
         table[c]++;
     }
+    debug << "2\n";
 
     for (auto e : table) {
         aux.terminal = true;
@@ -71,6 +82,7 @@ void compress() {
         aux.content = e.first;
         huff.push(aux);
     }
+    debug << "3\n";
 
     while (!huff.empty()) {
         node left = huff.top();
@@ -90,14 +102,30 @@ void compress() {
             huff.push(next);
         }
     }
+    debug << "4\n";
+
+    bfs(root);
 
     create_dictionary(root, "");
     
-    for (auto kv : dictionary) {
+    for (auto kv : dictionaryAB) {
         cout << kv.first << ' ' << kv.second << endl;
     }
+    debug << "5\n";
 }
 
-void decompress() {
+void decompress(const char *file_name) {
     
+}
+
+void bfs(node root) {
+    queue<node> largura;
+    largura.push(root);
+    while (!largura.empty()) {
+        cout << largura.front().content << ' ' << largura.front().frequency << endl;
+        largura.pop();
+        for (node child : largura.front().children) {
+            largura.push(child);
+        }
+    }
 }
