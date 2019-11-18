@@ -64,7 +64,7 @@ map<char, int> read_file_decompressed(FILE* inputFile) {
     fseek(inputFile, 0, SEEK_END);
     int file_size = ftell(inputFile);
     fseek(inputFile, 0, SEEK_SET);
-    debug << file_size;
+    debug << file_size << endl;
 
     for (int i = 0; i < file_size; i++) {
         char buffer;
@@ -72,6 +72,8 @@ map<char, int> read_file_decompressed(FILE* inputFile) {
         table[buffer]++;
         debug << buffer;
     } 
+
+    debug << endl;
     return table;
 }
 
@@ -102,12 +104,13 @@ void save_file_compressed(FILE* inputFile, FILE* outputFile) {
     for (int i = 0; i < file_size; i++) {
         char buffer;
         fread(&buffer, sizeof(char), 1, inputFile);
-        debug << "." << buffer << dictionaryAB[buffer];
+        debug << dictionaryAB[buffer] << "(" << buffer  << ")";
         int len = dictionaryAB[buffer].size();
 
         for (int i=0; i < len; i++) {
-            bs << 1;
+            bs = bs << 1;
             rep_size++;
+            
             if (dictionaryAB[buffer][i] == '1'){
                 bs |= 1;
             }
@@ -119,8 +122,9 @@ void save_file_compressed(FILE* inputFile, FILE* outputFile) {
         }
     } 
     if (rep_size) {
-        bs << (8-rep_size);
+        bs = bs << (8-rep_size);
         char representacao = (char)bs.to_ulong();
+        
         fwrite(&representacao, sizeof(char), 1, outputFile);
     }
     debug << endl;
@@ -135,11 +139,9 @@ void read_file_compressed(FILE* inputFile) {
     for (int i = 0; i < size; i++) {
         char character;
         fread(&character, sizeof(char), 1, inputFile);
-        debug << "character:" << character << endl;
 
         int len;
         fread(&len, sizeof(int), 1, inputFile);
-        debug << " len:" << len << endl;
 
         string representacao = "";
         for (int i = 0; i < len; i++) {
@@ -174,7 +176,7 @@ void save_file_decompressed(FILE* inputFile, FILE* outputFile) {
 
             if (dictionaryBA.count(representacao)) {
                 fwrite(&dictionaryBA[representacao], sizeof(char), 1, outputFile);
-                // dxebug << "." << representacao << "(" << dictionaryBA[representacao] << ")";
+                debug << representacao << "(" << dictionaryBA[representacao] << ")";
                 representacao = "";
             }
         }
