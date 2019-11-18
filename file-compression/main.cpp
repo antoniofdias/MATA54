@@ -6,7 +6,7 @@
 
 using namespace std;
 
-#define debug if (true) cout
+#define debug if (false) cout
 #define pb push_back
 
 map<char, string> dictionaryAB;
@@ -190,7 +190,7 @@ void compress(const char *file_name) {
     const char* another_file_name = file_name_str.c_str();
     FILE *outputFile = fopen(another_file_name, "w");
 
-    cout << file_name << endl;
+    debug << file_name << endl;
 
     node aux, root;
     priority_queue<node> huff;
