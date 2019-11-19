@@ -3,3 +3,9 @@
 !/hashing-with-chaining/src
 !/hashing-with-chaining/Makefile
 !/hashing-with-chaining/README.md
+
+/file-compression/*
+!/file-compression/include
+!/file-compression/src
+!/file-compression/Makefile
+!/file-compression/README.md

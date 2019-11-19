@@ -3,6 +3,7 @@
 #include <map>
 #include <queue>
 #include <string.h>
+#include "huffman.h"
 
 using namespace std;
 
@@ -12,22 +13,6 @@ using namespace std;
 map<char, string> dictionaryAB;
 map<string, char> dictionaryBA;
 
-
-struct node {
-    bool terminal;
-    unsigned int frequency;
-    char content;
-    vector<node> children;
-
-    bool operator <(const node & cmp_node) const {
-        return frequency > cmp_node.frequency;
-    }
-
-};
-
-void compress(const char *file_name);
-void decompress(const char *file_name);
-
 void create_dictionary(node &node_visited, string code) {
     if (!node_visited.terminal) {
         create_dictionary(node_visited.children[1], code + '0');
@@ -35,26 +20,6 @@ void create_dictionary(node &node_visited, string code) {
     }
     else {
         dictionaryAB[node_visited.content] = code;
-    }
-}
-
-int main (int argc, const char *argv[]) {
-    if (argc == 3) {
-        switch(argv[1][1]) {
-            case 'c':
-                compress(argv[2]);
-                break;
-            case 'd':
-                decompress(argv[2]);
-                break;
-            default:
-                cerr << "Please make sure you want to compress (-c) or decompress (-d) a file.\n";
-                return 1;
-        }
-    }
-    else {
-        cerr << "Please check the number of parameters\n";
-        return 1;
     }
 }
 
@@ -93,8 +58,6 @@ void save_file_compressed(FILE* inputFile, FILE* outputFile) {
 
     debug << "CONTENT" << endl;
 
-    int pos = ftell(outputFile); 
-    
     fseek(inputFile, 0, SEEK_END);
     int file_size = ftell(inputFile);
     fseek(inputFile, 0, SEEK_SET);
